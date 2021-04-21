@@ -202,6 +202,38 @@ class Encoder64(tf.Module):
     return tf.reshape(out, expanded_shape)  # (sample, N, T, feature)
 
 
+class Rondom_Crop_Encoder64(tf.Module):
+  """Feature extractor for input image size 64*64.
+  """
+
+  def __init__(self, base_depth, feature_size, name=None):
+    super(Rondom_Crop_Encoder64, self).__init__(name=name)
+    self.feature_size = feature_size
+    conv = functools.partial(
+        tf.keras.layers.Conv2D, padding="SAME", activation=tf.nn.leaky_relu)
+    self.conv1 = conv(base_depth, 5, 2)
+    self.conv2 = conv(2 * base_depth, 3, 2)
+    self.conv3 = conv(4 * base_depth, 3, 2)
+    self.conv4 = conv(8 * base_depth, 3, 2)
+    self.conv5 = conv(8 * base_depth, 4, padding="VALID")
+
+  def __call__(self, image):
+    #需要添加crop
+    image_shape = tf.shape(image)[-3:]
+    collapsed_shape = tf.concat(([-1], image_shape), axis=0)
+    out = tf.reshape(image, collapsed_shape)  # (sample*N*T, h, w, c)
+    #crop
+    crop_shape = [out.shape[0], 64, 64, 3]
+    out = tf.image.random_crop(out, crop_shape)
+    out = self.conv1(out)
+    out = self.conv2(out)
+    out = self.conv3(out)
+    out = self.conv4(out)
+    out = self.conv5(out)
+    expanded_shape = tf.concat((tf.shape(image)[:-3], [self.feature_size]), axis=0)
+    return tf.reshape(out, expanded_shape)  # (sample, N, T, feature)
+
+
 class Encoder128(tf.Module):
   """Feature extractor for input image size 128*128.
   """
@@ -272,6 +304,7 @@ class SequentialLatentModelHierarchical(tf.Module):
   def __init__(self,
                input_names,
                reconstruct_names,
+               random_crop = False,
                obs_size=64,
                base_depth=32,
                latent1_size=32,
@@ -299,7 +332,7 @@ class SequentialLatentModelHierarchical(tf.Module):
     self.latent2_size = latent2_size
     self.kl_analytic = kl_analytic
     self.obs_size = obs_size
-
+    self.random_crop = random_crop
     latent1_first_prior_distribution_ctor = ConstantMultivariateNormalDiag
     latent1_distribution_ctor = MultivariateNormalDiag
     latent2_distribution_ctor = MultivariateNormalDiag
@@ -331,6 +364,8 @@ class SequentialLatentModelHierarchical(tf.Module):
         self.encoders[name] = Encoder128(base_depth, 8 * base_depth)
       elif obs_size == 256:
         self.encoders[name] = Encoder256(base_depth, 8 * base_depth)
+      elif obs_size == 75:
+        self.encoders[name] = Encoder64(base_depth, 8 * base_depth)
       else:
         raise NotImplementedError
 
@@ -382,9 +417,27 @@ class SequentialLatentModelHierarchical(tf.Module):
     features = {}
     for name in self.input_names:
       images_tmp = tf.image.convert_image_dtype(images[name], tf.float32)
+      assert len(images_tmp.shape)==4
+      if self.random_crop:
+        self._random_crop_image
       features[name] = self.encoders[name](images_tmp)
     features = sum(features.values())
     return features
+
+  def _random_crop_image(self, images):
+    #随机crop成N*T*64*64*3大小的
+    def process_single_image(singe_image):
+      assert singe_image.shape[-2]>64
+      if len(singe_image.shape)==4:
+        for i in range(singe_image.shape[0]):
+          crop_shape = [singe_image.shape[-4], 64, 64, singe_image.shape[-1]]
+          singe_image[i] = tf.image.random_crop(singe_image[i], crop_shape)
+      return singe_image
+
+    for key, value in images:
+      images[key] = process_single_image(value)
+    return images
+
 
   def reconstruct(self, latent):
     """Reconstruct the images in reconstruct_names given the latent state."""

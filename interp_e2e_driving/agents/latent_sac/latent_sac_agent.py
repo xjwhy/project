@@ -40,7 +40,8 @@ class LatentSACAgent(tf_agent.TFAgent):
                summarize_grads_and_vars=False,
                train_step_counter=None,
                fps=10,
-               name=None):
+               name=None,
+               random_crop=False):
     tf.Module.__init__(self, name=name)
 
     self._inner_agent = inner_agent
@@ -52,6 +53,7 @@ class LatentSACAgent(tf_agent.TFAgent):
     self._summarize_grads_and_vars = summarize_grads_and_vars
     self._train_step_counter = train_step_counter
     self._fps = fps
+    self.random_crop = random_crop
 
     policy = latent_actor_policy.LatentActorPolicy(
       time_step_spec=time_step_spec,
@@ -93,6 +95,8 @@ class LatentSACAgent(tf_agent.TFAgent):
     with tf.GradientTape() as tape:
       # Sample the latent from model network
       images = experience.observation
+      if self.random_crop:
+        images = self._random_crop_image(images)
       latent_samples_and_dists = self._model_network.sample_posterior(
           images, actions, experience.step_type)
       latents, _ = latent_samples_and_dists
@@ -134,6 +138,20 @@ class LatentSACAgent(tf_agent.TFAgent):
                               model_loss=model_loss)
 
     return tf_agent.LossInfo(loss=total_loss, extra=extra)
+
+  def _random_crop_image(self, images):
+    #随机crop成N*T*64*64*3大小的
+    def process_single_image(singe_image):
+      assert singe_image.shape[-2]>64
+      if len(singe_image.shape)==4:
+        for i in range(singe_image.shape[0]):
+          crop_shape = [singe_image.shape[-4], 64, 64, singe_image.shape[-1]]
+          singe_image[i] = tf.image.random_crop(singe_image[i], crop_shape)
+      return singe_image
+
+    for key, value in images:
+      images[key] = process_single_image(value)
+    return images
 
 
   def _apply_gradients(self, gradients, variables, optimizer):

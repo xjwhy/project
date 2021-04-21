@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "args":[
-                "--root_dir", "logs/main/",
+                "--root_dir", "logs/sep_info/",
                 "--experiment_name", "latent_sac",
                 "--gin_file", "params.gin",
                 "--gin_param", "load_carla_env.port=2000"

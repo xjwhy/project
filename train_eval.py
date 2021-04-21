@@ -83,7 +83,9 @@ def load_carla_env(
   task_mode='random',
   max_time_episode=500,
   max_waypt=12,
-  obs_range=32,
+  # obs_range=32,
+  #增大图像
+  obs_range=39,
   lidar_bin=0.5,
   d_behind=12,
   out_lane_thres=2.0,
@@ -121,6 +123,7 @@ def load_carla_env(
     'display_route': display_route,  # whether to render the desired route
     'pixor_size': pixor_size,  # size of the pixor labels
     'pixor': pixor,  # whether to output PIXOR observation
+    'change_weather':True
   }
 
   gym_spec = gym.spec(env_name)
@@ -136,6 +139,8 @@ def load_carla_env(
   )
 
   eval_py_env = py_env
+
+
 
   if action_repeat > 1:
     py_env = wrappers.ActionRepeat(py_env, action_repeat)
@@ -478,7 +483,8 @@ def train_eval(
           gradient_clipping=gradient_clipping,
           summarize_grads_and_vars=summarize_grads_and_vars,
           train_step_counter=global_step,
-          fps=fps)
+          fps=fps,
+          random_crop=True)
 
     else:
       # Set up preprosessing layers for dictionary observation inputs
