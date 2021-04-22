@@ -10,6 +10,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
+            "justMyCode": false,
             "args":[
                 "--root_dir", "logs/main/",
                 "--experiment_name", "latent_sac",
