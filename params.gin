@@ -6,11 +6,13 @@ train_eval.model_network_ctor_type = 'hierarchical'
 
 train_eval.initial_model_train_steps = 0
 train_eval.num_iterations = 3000000
+#正常一个batch_size  model_batch_size是训练model采取的更小的一部分样本
 train_eval.batch_size = 256
 train_eval.model_batch_size = 32
 train_eval.sequence_length = 10
 
-train_eval.num_eval_episodes = 2
+#测试需要几个episode
+train_eval.num_eval_episodes = 5
 train_eval.eval_interval = 5000
 train_eval.summary_interval = 5000
 
