@@ -1,0 +1,42 @@
+nohup: ignoring input
+/home/liuyx/anaconda3/envs/carla_bc/lib/python3.6/site-packages/h5py/__init__.py:36: FutureWarning: Conversion of the second argument of issubdtype from `float` to `np.floating` is deprecated. In future, it will be treated as `np.float64 == np.dtype(float).type`.
+  from ._conv import register_converters as _register_converters
+2021-05-10 11:28:05.926695: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcuda.so.1
+2021-05-10 11:28:05.957161: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1618] Found device 0 with properties: 
+name: TITAN Xp major: 6 minor: 1 memoryClockRate(GHz): 1.582
+pciBusID: 0000:03:00.0
+2021-05-10 11:28:05.957429: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcudart.so.10.0
+2021-05-10 11:28:05.959202: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcublas.so.10.0
+2021-05-10 11:28:05.960782: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcufft.so.10.0
+2021-05-10 11:28:05.961158: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcurand.so.10.0
+2021-05-10 11:28:05.963217: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcusolver.so.10.0
+2021-05-10 11:28:05.964403: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcusparse.so.10.0
+2021-05-10 11:28:05.968871: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcudnn.so.7
+2021-05-10 11:28:05.970700: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1746] Adding visible gpu devices: 0
+2021-05-10 11:28:05.971141: I tensorflow/core/platform/cpu_feature_guard.cc:142] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
+2021-05-10 11:28:05.982131: I tensorflow/core/platform/profile_utils/cpu_utils.cc:94] CPU Frequency: 2294525000 Hz
+2021-05-10 11:28:05.985741: I tensorflow/compiler/xla/service/service.cc:168] XLA service 0x55796959ed60 executing computations on platform Host. Devices:
+2021-05-10 11:28:05.985775: I tensorflow/compiler/xla/service/service.cc:175]   StreamExecutor device (0): Host, Default Version
+2021-05-10 11:28:06.109990: I tensorflow/compiler/xla/service/service.cc:168] XLA service 0x5579695e2dd0 executing computations on platform CUDA. Devices:
+2021-05-10 11:28:06.110082: I tensorflow/compiler/xla/service/service.cc:175]   StreamExecutor device (0): TITAN Xp, Compute Capability 6.1
+2021-05-10 11:28:06.111752: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1618] Found device 0 with properties: 
+name: TITAN Xp major: 6 minor: 1 memoryClockRate(GHz): 1.582
+pciBusID: 0000:03:00.0
+2021-05-10 11:28:06.111852: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcudart.so.10.0
+2021-05-10 11:28:06.111895: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcublas.so.10.0
+2021-05-10 11:28:06.111933: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcufft.so.10.0
+2021-05-10 11:28:06.111970: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcurand.so.10.0
+2021-05-10 11:28:06.112007: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcusolver.so.10.0
+2021-05-10 11:28:06.112044: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcusparse.so.10.0
+2021-05-10 11:28:06.112081: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcudnn.so.7
+2021-05-10 11:28:06.115619: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1746] Adding visible gpu devices: 0
+2021-05-10 11:28:06.115801: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcudart.so.10.0
+2021-05-10 11:28:06.118022: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1159] Device interconnect StreamExecutor with strength 1 edge matrix:
+2021-05-10 11:28:06.118072: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1165]      0 
+2021-05-10 11:28:06.118093: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1178] 0:   N 
+2021-05-10 11:28:06.120729: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1304] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 9249 MB memory) -> physical GPU (device: 0, name: TITAN Xp, pci bus id: 0000:03:00.0, compute capability: 6.1)
+2021-05-10 11:28:36.159212: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcublas.so.10.0
+I0510 11:28:36.731161 140067480356672 common.py:923] No checkpoint available at logs/demo/carla-v0/latent_sac/train
+I0510 11:28:36.732920 140067480356672 common.py:923] No checkpoint available at logs/demo/carla-v0/latent_sac/policy
+I0510 11:28:36.734441 140067480356672 common.py:923] No checkpoint available at logs/demo/carla-v0/latent_sac/replay_buffer
+I0510 11:28:36.737490 140067480356672 train_eval.py:697] Initializing replay buffer by collecting experience for 1000 stepswith a random policy.

@@ -69,7 +69,7 @@ def load_carla_env(
   discount=1.0,
   number_of_vehicles=100,
   number_of_walkers=0,
-  display_size=256,
+  display_size=512,
   max_past_step=1,
   dt=0.1,
   discrete=False,
@@ -84,12 +84,13 @@ def load_carla_env(
   max_time_episode=500,
   max_waypt=12,
   obs_range=32,
-  lidar_bin=0.5,
+  lidar_bin=0.125,
   d_behind=12,
   out_lane_thres=2.0,
   desired_speed=8,
   max_ego_spawn_times=200,
   display_route=True,
+  # pixor_size=64,
   pixor_size=64,
   pixor=False,
   obs_channels=None,
@@ -199,22 +200,22 @@ def compute_summaries(metrics,
 
   # Concat input images of different episodes and generate reconstructed images.
   # Shape of images is [[images in episode as timesteps]].
-  if type(images[0][0]) is collections.OrderedDict:
-    images = pad_and_concatenate_videos(images, image_keys=image_keys, is_dict=True)
-  else:
-    images = pad_and_concatenate_videos(images, image_keys=image_keys, is_dict=False)
-  images = tf.image.convert_image_dtype([images], tf.uint8, saturate=True)
-  images = tf.squeeze(images, axis=2)
+  # if type(images[0][0]) is collections.OrderedDict:
+  #   images = pad_and_concatenate_videos(images, image_keys=image_keys, is_dict=True)
+  # else:
+  #   images = pad_and_concatenate_videos(images, image_keys=image_keys, is_dict=False)
+  # images = tf.image.convert_image_dtype([images], tf.uint8, saturate=True)
+  # images = tf.squeeze(images, axis=2)
   
-  reconstruct_images = get_latent_reconstruction_videos(latents, model_net)
-  reconstruct_images = tf.image.convert_image_dtype([reconstruct_images], tf.uint8, saturate=True)
+  # reconstruct_images = get_latent_reconstruction_videos(latents, model_net)
+  # reconstruct_images = tf.image.convert_image_dtype([reconstruct_images], tf.uint8, saturate=True)
 
   # Need to avoid eager here to avoid rasing error
-  gif_summary = common.function(gif_utils.gif_summary_v2)
+  # gif_summary = common.function(gif_utils.gif_summary_v2)
 
   # Summarize to tensorboard
-  gif_summary('ObservationVideoEvalPolicy', images, 1, fps)
-  gif_summary('ReconstructedVideoEvalPolicy', reconstruct_images, 1, fps)
+  # gif_summary('ObservationVideoEvalPolicy', images, 1, fps)
+  # gif_summary('ReconstructedVideoEvalPolicy', reconstruct_images, 1, fps)
 
 
 def pad_and_concatenate_videos(videos, image_keys, is_dict=False):

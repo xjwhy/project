@@ -12,7 +12,7 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args":[
-                "--root_dir", "logs/main/",
+                "--root_dir", "logs/demo/",
                 "--experiment_name", "latent_sac",
                 "--gin_file", "params.gin",
                 "--gin_param", "load_carla_env.port=2000"

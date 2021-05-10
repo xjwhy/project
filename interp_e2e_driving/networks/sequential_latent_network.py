@@ -190,6 +190,14 @@ class Encoder64(tf.Module):
     self.conv5 = conv(8 * base_depth, 4, padding="VALID")
 
   def __call__(self, image):
+    assert len(image.shape)==4 or len(image.shape)==5
+    if len(image.shape)==5:
+      batch_size, seq_length = image.shape[0], image.shape[1]
+      image = tf.reshape(image, [-1, image.shape[2], image.shape[3], image.shape[4]])
+      image = tf.image.resize(image, [64,64], method='nearest')
+      image = tf.reshape(image, [batch_size, seq_length, image.shape[-3], image.shape[-2], image.shape[-1]])
+    else:
+      image = tf.image.resize(image, [64,64], method='nearest')
     image_shape = tf.shape(image)[-3:]
     collapsed_shape = tf.concat(([-1], image_shape), axis=0)
     out = tf.reshape(image, collapsed_shape)  # (sample*N*T, h, w, c)
@@ -351,6 +359,17 @@ class SequentialLatentModelHierarchical(tf.Module):
     """Size of the latent state."""
     return self.latent1_size + self.latent2_size
 
+  def preprocess_image(self, image):
+    assert len(image.shape)==4 or len(image.shape)==5
+    if len(image.shape)==5:
+      batch_size, seq_length = image.shape[0], image.shape[1]
+      image = tf.reshape(image, [-1, image.shape[2], image.shape[3], image.shape[4]])
+      image = tf.image.resize(image, [64,64], method='nearest')
+      image = tf.reshape(image, [batch_size, seq_length, image.shape[-3], image.shape[-2], image.shape[-1]])
+    else:
+      image = tf.image.resize(image, [64,64], method='nearest')
+    return image
+
   def sample_prior(self, batch_size):
     """Sample the prior latent state."""
     latent1 = self.latent1_first_prior(tf.zeros(batch_size)).sample()
@@ -496,6 +515,9 @@ class SequentialLatentModelHierarchical(tf.Module):
     for name in self.reconstruct_names:
       likelihood_dists[name] = self.decoders[name](latent1_posterior_samples, latent2_posterior_samples)
       images_tmp = tf.image.convert_image_dtype(images[name], tf.float32)
+
+      images_tmp = self.preprocess_image(images_tmp)
+
       likelihood_log_probs[name] = likelihood_dists[name].log_prob(images_tmp)
       likelihood_log_probs[name] = tf.reduce_sum(likelihood_log_probs[name], axis=1)
       reconstruction_error[name] = tf.reduce_sum(tf.square(images_tmp - likelihood_dists[name].distribution.loc),
