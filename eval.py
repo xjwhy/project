@@ -69,7 +69,7 @@ def load_carla_env(
   discount=1.0,
   number_of_vehicles=100,
   number_of_walkers=0,
-  display_size=256,
+  display_size=512,
   max_past_step=1,
   dt=0.1,
   discrete=False,
@@ -84,12 +84,13 @@ def load_carla_env(
   max_time_episode=500,
   max_waypt=12,
   obs_range=32,
-  lidar_bin=0.5,
+  lidar_bin=0.125,
   d_behind=12,
   out_lane_thres=2.0,
   desired_speed=8,
   max_ego_spawn_times=200,
   display_route=True,
+  # pixor_size=64,
   pixor_size=64,
   pixor=False,
   obs_channels=None,
@@ -199,22 +200,22 @@ def compute_summaries(metrics,
 
   # Concat input images of different episodes and generate reconstructed images.
   # Shape of images is [[images in episode as timesteps]].
-  if type(images[0][0]) is collections.OrderedDict:
-    images = pad_and_concatenate_videos(images, image_keys=image_keys, is_dict=True)
-  else:
-    images = pad_and_concatenate_videos(images, image_keys=image_keys, is_dict=False)
-  images = tf.image.convert_image_dtype([images], tf.uint8, saturate=True)
-  images = tf.squeeze(images, axis=2)
+  # if type(images[0][0]) is collections.OrderedDict:
+  #   images = pad_and_concatenate_videos(images, image_keys=image_keys, is_dict=True)
+  # else:
+  #   images = pad_and_concatenate_videos(images, image_keys=image_keys, is_dict=False)
+  # images = tf.image.convert_image_dtype([images], tf.uint8, saturate=True)
+  # images = tf.squeeze(images, axis=2)
   
-  reconstruct_images = get_latent_reconstruction_videos(latents, model_net)
-  reconstruct_images = tf.image.convert_image_dtype([reconstruct_images], tf.uint8, saturate=True)
+  # reconstruct_images = get_latent_reconstruction_videos(latents, model_net)
+  # reconstruct_images = tf.image.convert_image_dtype([reconstruct_images], tf.uint8, saturate=True)
 
   # Need to avoid eager here to avoid rasing error
-  gif_summary = common.function(gif_utils.gif_summary_v2)
+  # gif_summary = common.function(gif_utils.gif_summary_v2)
 
   # Summarize to tensorboard
-  gif_summary('ObservationVideoEvalPolicy', images, 1, fps)
-  gif_summary('ReconstructedVideoEvalPolicy', reconstruct_images, 1, fps)
+  # gif_summary('ObservationVideoEvalPolicy', images, 1, fps)
+  # gif_summary('ReconstructedVideoEvalPolicy', reconstruct_images, 1, fps)
 
 
 def pad_and_concatenate_videos(videos, image_keys, is_dict=False):
@@ -672,14 +673,119 @@ def train_eval(
     rb_checkpointer.initialize_or_restore()
     policy_checkpointer.initialize_or_restore()
 
+    # Collect driver
+    initial_collect_driver = dynamic_step_driver.DynamicStepDriver(
+        tf_env,
+        initial_collect_policy,
+        observers=replay_observer + train_metrics,
+        num_steps=initial_collect_steps)
+
+    collect_driver = dynamic_step_driver.DynamicStepDriver(
+        tf_env,
+        collect_policy,
+        observers=replay_observer + train_metrics,
+        num_steps=collect_steps_per_iteration)
+    
+
+    # Optimize the performance by using tf functions
+    initial_collect_driver.run = common.function(initial_collect_driver.run)
+    collect_driver.run = common.function(collect_driver.run)
+    tf_agent.train = common.function(tf_agent.train)
+
+    # Collect initial replay data.
+    if (env_steps.result() == 0 or replay_buffer.num_frames() == 0):
+      logging.info(
+          'Initializing replay buffer by collecting experience for %d steps'
+          'with a random policy.', initial_collect_steps)
+      initial_collect_driver.run()
+
+    if agent_name == 'latent_sac':
+      compute_summaries(
+        eval_metrics,
+        eval_tf_env,
+        eval_policy,
+        train_step=global_step,
+        summary_writer=summary_writer,
+        num_episodes=1,
+        num_episodes_to_render=1,
+        model_net=model_net,
+        fps=10,
+        image_keys=input_names+mask_names)
+    else:
+      results = metric_utils.eager_compute(
+          eval_metrics,
+          eval_tf_env,
+          eval_policy,
+          num_episodes=1,
+          train_step=env_steps.result(),
+          summary_writer=summary_writer,
+          summary_prefix='Eval',
+      )
+      metric_utils.log_metrics(eval_metrics)
+
+    # Dataset generates trajectories with shape [Bxslx...]
+    dataset = replay_buffer.as_dataset(
+        num_parallel_calls=3,
+        sample_batch_size=batch_size,
+        num_steps=sequence_length + 1).prefetch(3)
+    iterator = iter(dataset)
+
+    # Get train step
+    def train_step():
+      experience, _ = next(iterator)
+      return tf_agent.train(experience)
+    train_step = common.function(train_step)
+
+    if agent_name == 'latent_sac':
+      def train_model_step():
+        experience, _ = next(iterator)
+        return tf_agent.train_model(experience)
+      train_model_step = common.function(train_model_step)
+
+    # Training initializations
     time_step = None
     time_acc = 0
     env_steps_before = env_steps.result().numpy()
 
-
+    # Start training
     for iteration in range(num_iterations):
+      start_time = time.time()
+
+      if agent_name == 'latent_sac' and iteration < initial_model_train_steps:
+        train_model_step()
+      else:
+        # Run collect
+        time_step, _ = collect_driver.run(time_step=time_step)
+
+        # Train an iteration
+        for _ in range(train_steps_per_iteration):
+          train_step()
+
+      time_acc += time.time() - start_time
+
+      # Log training information
+      if global_step.numpy() % log_interval == 0:
+        logging.info('env steps = %d, average return = %f', env_steps.result(),
+                     average_return.result())
+        env_steps_per_sec = (env_steps.result().numpy() -
+                             env_steps_before) / time_acc
+        logging.info('%.3f env steps/sec', env_steps_per_sec)
+        tf.summary.scalar(
+            name='env_steps_per_sec',
+            data=env_steps_per_sec,
+            step=env_steps.result())
+        time_acc = 0
+        env_steps_before = env_steps.result().numpy()
+
+      # Get training metrics
+      for train_metric in train_metrics:
+        train_metric.tf_summaries(train_step=env_steps.result())
+
+      # Evaluation
+      if global_step.numpy() % eval_interval == 0:
+        # Log evaluation metrics
         if agent_name == 'latent_sac':
-            compute_summaries(
+          compute_summaries(
             eval_metrics,
             eval_tf_env,
             eval_policy,
@@ -691,20 +797,27 @@ def train_eval(
             fps=10,
             image_keys=input_names+mask_names)
         else:
-            results = metric_utils.eager_compute(
-                eval_metrics,
-                eval_tf_env,
-                eval_policy,
-                num_episodes=num_eval_episodes,
-                train_step=env_steps.result(),
-                summary_writer=summary_writer,
-                summary_prefix='Eval',
-            )
-            metric_utils.log_metrics(eval_metrics)
+          results = metric_utils.eager_compute(
+              eval_metrics,
+              eval_tf_env,
+              eval_policy,
+              num_episodes=num_eval_episodes,
+              train_step=env_steps.result(),
+              summary_writer=summary_writer,
+              summary_prefix='Eval',
+          )
+          metric_utils.log_metrics(eval_metrics)
 
-        # Save checkpoints
-        global_step_val = global_step.numpy()
+      # Save checkpoints
+      global_step_val = global_step.numpy()
+      if global_step_val % train_checkpoint_interval == 0:
+        train_checkpointer.save(global_step=global_step_val)
 
+      if global_step_val % policy_checkpoint_interval == 0:
+        policy_checkpointer.save(global_step=global_step_val)
+
+      if global_step_val % rb_checkpoint_interval == 0:
+        rb_checkpointer.save(global_step=global_step_val)
 
 
 def main(_):

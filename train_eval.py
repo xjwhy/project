@@ -671,6 +671,7 @@ def train_eval(
         replay_buffer=replay_buffer)
     train_checkpointer.initialize_or_restore()
     rb_checkpointer.initialize_or_restore()
+    policy_checkpointer.initialize_or_restore()
 
     # Collect driver
     initial_collect_driver = dynamic_step_driver.DynamicStepDriver(
