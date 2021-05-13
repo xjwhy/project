@@ -11,3 +11,8 @@ Carla simulator with RL
                 "CUDA_VISIBLE_DEVICES":"0",
                 "PYTHONPATH":"${workspaceRoot}"
             }
+
+If out of system memory, change the parameter replay_buffer_capacity and initial_collect_steps the function tran_eval smaller.
+
+If out of CUDA memory, set parameter model_batch_size or sequence_length of the function tran_eval smaller.
+
