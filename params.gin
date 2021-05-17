@@ -24,8 +24,9 @@ train_eval.num_images_per_summary = 2
 train_eval.train_checkpoint_interval = 5000
 train_eval.policy_checkpoint_interval = 5000
 train_eval.rb_checkpoint_interval = 5000
-train_eval.action_repeat=4
-
+#train_eval.action_repeat=4
+#暂时改为2用于做demo
+train_eval.action_repeat=2
 train_eval.input_names=['camera', 'lidar']
 train_eval.mask_names=['birdeye']
 

@@ -191,12 +191,7 @@ def compute_summaries(metrics,
 
     time_step = next_time_step
 
-  # Summarize scalars to tensorboard
-  if train_step and summary_writer:
-    with summary_writer.as_default():
-      for m in metrics:
-        tag = m.name
-        tf.compat.v2.summary.scalar(name=tag, data=m.result(), step=train_step)
+
 
   # Concat input images of different episodes and generate reconstructed images.
   # Shape of images is [[images in episode as timesteps]].
@@ -213,9 +208,6 @@ def compute_summaries(metrics,
   # Need to avoid eager here to avoid rasing error
   # gif_summary = common.function(gif_utils.gif_summary_v2)
 
-  # Summarize to tensorboard
-  # gif_summary('ObservationVideoEvalPolicy', images, 1, fps)
-  # gif_summary('ReconstructedVideoEvalPolicy', reconstruct_images, 1, fps)
 
 
 def pad_and_concatenate_videos(videos, image_keys, is_dict=False):
@@ -393,7 +385,7 @@ def train_eval(
   ]
 
   global_step = tf.compat.v1.train.get_or_create_global_step()
-
+  
   # Whether to record for summary
   with tf.summary.record_if(
       lambda: tf.math.equal(global_step % summary_interval, 0)):
@@ -407,6 +399,7 @@ def train_eval(
 
     tf_env = tf_py_environment.TFPyEnvironment(py_env)
     eval_tf_env = tf_py_environment.TFPyEnvironment(eval_py_env)
+
     fps = int(np.round(1.0 / (py_env.dt * action_repeat)))
 
     # Specs
@@ -692,132 +685,33 @@ def train_eval(
     collect_driver.run = common.function(collect_driver.run)
     tf_agent.train = common.function(tf_agent.train)
 
-    # Collect initial replay data.
-    if (env_steps.result() == 0 or replay_buffer.num_frames() == 0):
-      logging.info(
-          'Initializing replay buffer by collecting experience for %d steps'
-          'with a random policy.', initial_collect_steps)
-      initial_collect_driver.run()
 
-    if agent_name == 'latent_sac':
-      compute_summaries(
-        eval_metrics,
-        eval_tf_env,
-        eval_policy,
-        train_step=global_step,
-        summary_writer=summary_writer,
-        num_episodes=1,
-        num_episodes_to_render=1,
-        model_net=model_net,
-        fps=10,
-        image_keys=input_names+mask_names)
-    else:
-      results = metric_utils.eager_compute(
-          eval_metrics,
-          eval_tf_env,
-          eval_policy,
-          num_episodes=1,
-          train_step=env_steps.result(),
-          summary_writer=summary_writer,
-          summary_prefix='Eval',
-      )
-      metric_utils.log_metrics(eval_metrics)
 
-    # Dataset generates trajectories with shape [Bxslx...]
-    dataset = replay_buffer.as_dataset(
-        num_parallel_calls=3,
-        sample_batch_size=batch_size,
-        num_steps=sequence_length + 1).prefetch(3)
-    iterator = iter(dataset)
-
-    # Get train step
-    def train_step():
-      experience, _ = next(iterator)
-      return tf_agent.train(experience)
-    train_step = common.function(train_step)
-
-    if agent_name == 'latent_sac':
-      def train_model_step():
-        experience, _ = next(iterator)
-        return tf_agent.train_model(experience)
-      train_model_step = common.function(train_model_step)
-
-    # Training initializations
     time_step = None
     time_acc = 0
     env_steps_before = env_steps.result().numpy()
 
     # Start training
     for iteration in range(num_iterations):
-      start_time = time.time()
-
-      if agent_name == 'latent_sac' and iteration < initial_model_train_steps:
-        train_model_step()
-      else:
-        # Run collect
-        time_step, _ = collect_driver.run(time_step=time_step)
-
-        # Train an iteration
-        for _ in range(train_steps_per_iteration):
-          train_step()
-
-      time_acc += time.time() - start_time
-
-      # Log training information
-      if global_step.numpy() % log_interval == 0:
-        logging.info('env steps = %d, average return = %f', env_steps.result(),
-                     average_return.result())
-        env_steps_per_sec = (env_steps.result().numpy() -
-                             env_steps_before) / time_acc
-        logging.info('%.3f env steps/sec', env_steps_per_sec)
-        tf.summary.scalar(
-            name='env_steps_per_sec',
-            data=env_steps_per_sec,
-            step=env_steps.result())
-        time_acc = 0
-        env_steps_before = env_steps.result().numpy()
-
-      # Get training metrics
-      for train_metric in train_metrics:
-        train_metric.tf_summaries(train_step=env_steps.result())
 
       # Evaluation
-      if global_step.numpy() % eval_interval == 0:
-        # Log evaluation metrics
-        if agent_name == 'latent_sac':
-          compute_summaries(
-            eval_metrics,
-            eval_tf_env,
-            eval_policy,
-            train_step=global_step,
-            summary_writer=summary_writer,
-            num_episodes=num_eval_episodes,
-            num_episodes_to_render=num_images_per_summary,
-            model_net=model_net,
-            fps=10,
-            image_keys=input_names+mask_names)
-        else:
-          results = metric_utils.eager_compute(
-              eval_metrics,
-              eval_tf_env,
-              eval_policy,
-              num_episodes=num_eval_episodes,
-              train_step=env_steps.result(),
-              summary_writer=summary_writer,
-              summary_prefix='Eval',
-          )
-          metric_utils.log_metrics(eval_metrics)
 
-      # Save checkpoints
-      global_step_val = global_step.numpy()
-      if global_step_val % train_checkpoint_interval == 0:
-        train_checkpointer.save(global_step=global_step_val)
+      # Log evaluation metrics
+      if agent_name == 'latent_sac':
+        compute_summaries(
+          eval_metrics,
+          eval_tf_env,
+          eval_policy,
+          train_step=global_step,
+          summary_writer=summary_writer,
+          num_episodes=num_eval_episodes,
+          num_episodes_to_render=num_images_per_summary,
+          model_net=model_net,
+          fps=10,
+          image_keys=input_names+mask_names)
+        metric_utils.log_metrics(eval_metrics)
 
-      if global_step_val % policy_checkpoint_interval == 0:
-        policy_checkpointer.save(global_step=global_step_val)
 
-      if global_step_val % rb_checkpoint_interval == 0:
-        rb_checkpointer.save(global_step=global_step_val)
 
 
 def main(_):
