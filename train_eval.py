@@ -28,6 +28,7 @@ from tf_agents.agents.dqn import dqn_agent
 from tf_agents.agents.ppo import ppo_agent
 from tf_agents.agents.sac import sac_agent
 from tf_agents.agents.td3 import td3_agent
+from tf_agents.agents.ppo import ppo_agent
 from tf_agents.drivers import dynamic_step_driver
 from tf_agents.environments import gym_wrapper
 from tf_agents.environments import tf_py_environment
@@ -491,6 +492,72 @@ def train_eval(
           train_step_counter=global_step,
           fps=fps)
 
+
+    elif agent_name == 'latent_ppo':
+      # Get model network for latent sac
+      if model_network_ctor_type == 'hierarchical':
+        model_network_ctor = sequential_latent_network.SequentialLatentModelHierarchical
+      elif model_network_ctor_type == 'non-hierarchical':
+        model_network_ctor = sequential_latent_network.SequentialLatentModelNonHierarchical
+      else:
+        raise NotImplementedError
+      model_net = model_network_ctor(input_names, input_names+mask_names)
+
+      # Get the latent spec
+      latent_size = model_net.latent_size
+      latent_observation_spec = tensor_spec.TensorSpec((latent_size,), dtype=tf.float32)
+      latent_time_step_spec = ts.time_step_spec(observation_spec=latent_observation_spec)
+
+      # Get actor and critic net
+      actor_net = actor_distribution_network.ActorDistributionNetwork(
+          latent_observation_spec,
+          action_spec,
+          fc_layer_params=actor_fc_layers,
+          continuous_projection_net=normal_projection_net)
+      critic_net = critic_network.CriticNetwork(
+          (latent_observation_spec, action_spec),
+          observation_fc_layer_params=critic_obs_fc_layers,
+          action_fc_layer_params=critic_action_fc_layers,
+          joint_fc_layer_params=critic_joint_fc_layers)
+
+      # Build the inner SAC agent based on latent space
+      inner_agent = ppo_agent.PPOAgent(
+          latent_time_step_spec,
+          action_spec,
+          actor_network=actor_net,
+          critic_network=critic_net,
+          actor_optimizer=tf.compat.v1.train.AdamOptimizer(
+              learning_rate=actor_learning_rate),
+          critic_optimizer=tf.compat.v1.train.AdamOptimizer(
+              learning_rate=critic_learning_rate),
+          alpha_optimizer=tf.compat.v1.train.AdamOptimizer(
+              learning_rate=alpha_learning_rate),
+          target_update_tau=target_update_tau,
+          target_update_period=target_update_period,
+          td_errors_loss_fn=td_errors_loss_fn,
+          gamma=gamma,
+          reward_scale_factor=reward_scale_factor,
+          gradient_clipping=gradient_clipping,
+          debug_summaries=debug_summaries,
+          summarize_grads_and_vars=summarize_grads_and_vars,
+          train_step_counter=global_step)
+      inner_agent.initialize()
+
+      # Build the latent sac agent
+      tf_agent = latent_sac_agent.LatentSACAgent(
+          time_step_spec,
+          action_spec,
+          inner_agent=inner_agent,
+          model_network=model_net,
+          model_optimizer=tf.compat.v1.train.AdamOptimizer(
+              learning_rate=model_learning_rate),
+          model_batch_size=model_batch_size,
+          num_images_per_summary=num_images_per_summary,
+          sequence_length=sequence_length,
+          gradient_clipping=gradient_clipping,
+          summarize_grads_and_vars=summarize_grads_and_vars,
+          train_step_counter=global_step,
+          fps=fps)    
     else:
       # Set up preprosessing layers for dictionary observation inputs
       preprocessing_layers = collections.OrderedDict()
@@ -740,17 +807,31 @@ def train_eval(
         num_steps=sequence_length + 1).prefetch(3)
     iterator = iter(dataset)
 
-    # Get train step
-    def train_step():
-      experience, _ = next(iterator)
-      return tf_agent.train(experience)
-    train_step = common.function(train_step)
+
 
     if agent_name == 'latent_sac':
       def train_model_step():
         experience, _ = next(iterator)
         return tf_agent.train_model(experience)
       train_model_step = common.function(train_model_step)
+      # Get train step
+      def train_step():
+        experience, _ = next(iterator)
+        return tf_agent.train(experience)
+      train_step = common.function(train_step)
+    elif agent_name == 'latent_ppo':
+      # Get train step
+      def train_step():
+        experience = replay_buffer.gather_all()
+        return tf_agent.train(experience)
+      train_step = common.function(train_step)
+    else:
+      # Get train step
+      def train_step():
+        experience, _ = next(iterator)
+        return tf_agent.train(experience)
+      train_step = common.function(train_step)
+
 
     # Training initializations
     time_step = None
@@ -763,10 +844,11 @@ def train_eval(
 
       if agent_name == 'latent_sac' and iteration < initial_model_train_steps:
         train_model_step()
+      elif agent_name == 'latent_ppo':
+        train_step()
       else:
         # Run collect
         time_step, _ = collect_driver.run(time_step=time_step)
-
         # Train an iteration
         for _ in range(train_steps_per_iteration):
           train_step()
