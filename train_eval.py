@@ -9,7 +9,7 @@ from __future__ import print_function
 from absl import app
 from absl import flags
 from absl import logging
-
+from shutil import copyfile
 import functools
 import gin
 import numpy as np
@@ -19,7 +19,9 @@ import time
 import collections
 
 import gym
-import gym_carla
+# import gym_carla
+
+import why_carla
 
 from tf_agents.agents.ddpg import critic_network
 from tf_agents.agents.dqn import dqn_agent
@@ -43,7 +45,7 @@ from tf_agents.specs import tensor_spec
 from tf_agents.trajectories import time_step as ts
 from tf_agents.trajectories import trajectory
 from tf_agents.utils import common
-
+from tf_agents.policies import greedy_policy
 from interp_e2e_driving.agents.ddpg import ddpg_agent
 from interp_e2e_driving.agents.latent_sac import latent_sac_agent
 from interp_e2e_driving.environments import filter_observation_wrapper
@@ -65,7 +67,7 @@ FLAGS = flags.FLAGS
 
 @gin.configurable
 def load_carla_env(
-  env_name='carla-v0',
+  env_name='why_carla-v0',
   discount=1.0,
   number_of_vehicles=100,
   number_of_walkers=0,
@@ -93,7 +95,7 @@ def load_carla_env(
   pixor_size=64,
   pixor=False,
   obs_channels=None,
-  action_repeat=1):
+  action_repeat=1,):
   """Loads train and eval environments."""
   env_params = {
     'number_of_vehicles': number_of_vehicles,
@@ -310,8 +312,8 @@ def train_eval(
     critic_action_fc_layers=None,
     critic_joint_fc_layers=(256, 256),
     model_network_ctor_type='non-hierarchical',  # model net
-    input_names=['camera', 'lidar'],  # names for inputs
-    mask_names=['birdeye'],  # names for masks
+    input_names=['camera', 'lidar', 'birdeye'],  # names for inputs
+    mask_names=[],  # names for masks
     preprocessing_combiner=tf.keras.layers.Add(),  # takes a flat list of tensors and combines them
     actor_lstm_size=(40,),  # lstm size for actor
     critic_lstm_size=(40,),  # lstm size for critic
@@ -377,10 +379,19 @@ def train_eval(
   root_dir = os.path.expanduser(root_dir)
   root_dir = os.path.join(root_dir, env_name, experiment_name)
 
+
   # Get summary writers
   summary_writer = tf.summary.create_file_writer(
       root_dir, flush_millis=summaries_flush_secs * 1000)
   summary_writer.set_as_default()
+
+  #备份配置文件
+  config_copy = '{}/params.gin'.format(root_dir)
+  copyfile(FLAGS.gin_file[0], config_copy)
+  config_copy = '{}/launch.json'.format(root_dir)
+  copyfile('/home/liuyx/project/project/.vscode/launch.json', config_copy)
+  
+
 
   # Eval metrics
   eval_metrics = [
@@ -398,11 +409,11 @@ def train_eval(
       lambda: tf.math.equal(global_step % summary_interval, 0)):
     # Create Carla environment
     if agent_name == 'latent_sac':
-      py_env, eval_py_env = load_carla_env(env_name='carla-v0', obs_channels=input_names+mask_names, action_repeat=action_repeat)
+      py_env, eval_py_env = load_carla_env(env_name='why_carla-v0', obs_channels=input_names+mask_names, action_repeat=action_repeat)
     elif agent_name == 'dqn':
-      py_env, eval_py_env = load_carla_env(env_name='carla-v0', discrete=True, obs_channels=input_names, action_repeat=action_repeat)
+      py_env, eval_py_env = load_carla_env(env_name='why_carla-v0', discrete=True, obs_channels=input_names, action_repeat=action_repeat)
     else:
-      py_env, eval_py_env = load_carla_env(env_name='carla-v0', obs_channels=input_names, action_repeat=action_repeat)
+      py_env, eval_py_env = load_carla_env(env_name='why_carla-v0', obs_channels=input_names, action_repeat=action_repeat)
 
     tf_env = tf_py_environment.TFPyEnvironment(py_env)
     eval_tf_env = tf_py_environment.TFPyEnvironment(eval_py_env)
@@ -646,8 +657,8 @@ def train_eval(
     ]
 
     # Get policies
-    # eval_policy = greedy_policy.GreedyPolicy(tf_agent.policy)
-    eval_policy = tf_agent.policy
+    eval_policy = greedy_policy.GreedyPolicy(tf_agent.policy)
+    # eval_policy = tf_agent.policy
     initial_collect_policy = random_tf_policy.RandomTFPolicy(
         time_step_spec, action_spec)
     collect_policy = tf_agent.collect_policy
@@ -658,18 +669,19 @@ def train_eval(
         agent=tf_agent,
         global_step=global_step,
         metrics=metric_utils.MetricsGroup(train_metrics, 'train_metrics'),
-        max_to_keep=2)
+        max_to_keep=100)
     policy_checkpointer = common.Checkpointer(
         ckpt_dir=os.path.join(root_dir, 'policy'),
-        policy=eval_policy,
+        policy=tf_agent.policy,
         global_step=global_step,
-        max_to_keep=2)
+        max_to_keep=100)
     rb_checkpointer = common.Checkpointer(
         ckpt_dir=os.path.join(root_dir, 'replay_buffer'),
-        max_to_keep=1,
+        max_to_keep=100,
         replay_buffer=replay_buffer)
     train_checkpointer.initialize_or_restore()
     rb_checkpointer.initialize_or_restore()
+    policy_checkpointer.initialize_or_restore()
 
     # Collect driver
     initial_collect_driver = dynamic_step_driver.DynamicStepDriver(
@@ -821,7 +833,9 @@ def train_eval(
 def main(_):
   tf.compat.v1.enable_v2_behavior()
   logging.set_verbosity(logging.INFO)
+  
   gin.parse_config_files_and_bindings(FLAGS.gin_file, FLAGS.gin_param)
+
   train_eval(FLAGS.root_dir, FLAGS.experiment_name)
 
 
