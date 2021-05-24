@@ -21,7 +21,7 @@ import collections
 import gym
 # import gym_carla
 
-import why_carla
+import seq_carla
 
 from tf_agents.agents.ddpg import critic_network
 from tf_agents.agents.dqn import dqn_agent
@@ -67,7 +67,7 @@ FLAGS = flags.FLAGS
 
 @gin.configurable
 def load_carla_env(
-  env_name='why_carla-v0',
+  env_name='seq_carla-v0',
   discount=1.0,
   number_of_vehicles=100,
   number_of_walkers=0,
@@ -95,7 +95,8 @@ def load_carla_env(
   pixor_size=64,
   pixor=False,
   obs_channels=None,
-  action_repeat=1,):
+  action_repeat=1,
+  sequence_length=5,):
   """Loads train and eval environments."""
   env_params = {
     'number_of_vehicles': number_of_vehicles,
@@ -123,6 +124,7 @@ def load_carla_env(
     'display_route': display_route,  # whether to render the desired route
     'pixor_size': pixor_size,  # size of the pixor labels
     'pixor': pixor,  # whether to output PIXOR observation
+    'seq_length':sequence_length
   }
 
   gym_spec = gym.spec(env_name)
@@ -304,7 +306,7 @@ class Preprocessing_Layer(tf.keras.layers.Layer):
 def train_eval(
     root_dir,
     experiment_name,  # experiment name
-    env_name='carla-v0',
+    env_name='seq_carla-v0',
     agent_name='sac',  # agent's name
     num_iterations=int(1e7),
     actor_fc_layers=(256, 256),
@@ -409,11 +411,11 @@ def train_eval(
       lambda: tf.math.equal(global_step % summary_interval, 0)):
     # Create Carla environment
     if agent_name == 'latent_sac':
-      py_env, eval_py_env = load_carla_env(env_name='why_carla-v0', obs_channels=input_names+mask_names, action_repeat=action_repeat)
+      py_env, eval_py_env = load_carla_env(env_name='seq_carla-v0', obs_channels=input_names+mask_names, action_repeat=action_repeat, sequence_length=sequence_length)
     elif agent_name == 'dqn':
-      py_env, eval_py_env = load_carla_env(env_name='why_carla-v0', discrete=True, obs_channels=input_names, action_repeat=action_repeat)
+      py_env, eval_py_env = load_carla_env(env_name='seq_carla-v0', discrete=True, obs_channels=input_names, action_repeat=action_repeat)
     else:
-      py_env, eval_py_env = load_carla_env(env_name='why_carla-v0', obs_channels=input_names, action_repeat=action_repeat)
+      py_env, eval_py_env = load_carla_env(env_name='seq_carla-v0', obs_channels=input_names, action_repeat=action_repeat)
 
     tf_env = tf_py_environment.TFPyEnvironment(py_env)
     eval_tf_env = tf_py_environment.TFPyEnvironment(eval_py_env)

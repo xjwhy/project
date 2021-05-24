@@ -12,7 +12,7 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args":[
-                "--root_dir", "logs/new_main/",
+                "--root_dir", "logs/seq_main/",
                 "--experiment_name", "latent_sac",
                 "--gin_file", "/home/liuyx/project/project/params.gin",
                 "--gin_param", "load_carla_env.port=2000"

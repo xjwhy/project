@@ -1,6 +1,6 @@
 # Parameters for train_eval:
 # ==============================================================================
-train_eval.env_name = 'why_carla-v0'
+train_eval.env_name = 'seq_carla-v0'
 train_eval.agent_name = 'latent_sac'
 train_eval.model_network_ctor_type = 'hierarchical'
 
@@ -16,7 +16,7 @@ train_eval.num_eval_episodes = 8
 train_eval.eval_interval = 5000
 train_eval.summary_interval = 5000
 
-train_eval.initial_collect_steps = 1000
+train_eval.initial_collect_steps = 0
 
 train_eval.debug_summaries = False
 train_eval.num_images_per_summary = 2
