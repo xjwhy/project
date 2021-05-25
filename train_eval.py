@@ -738,8 +738,7 @@ def train_eval(
     # Dataset generates trajectories with shape [Bxslx...]
     dataset = replay_buffer.as_dataset(
         num_parallel_calls=3,
-        sample_batch_size=batch_size,
-        num_steps=sequence_length + 1).prefetch(3)
+        sample_batch_size=batch_size).prefetch(3)
     iterator = iter(dataset)
 
     # Get train step
