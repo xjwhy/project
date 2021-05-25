@@ -201,22 +201,22 @@ def compute_summaries(metrics,
 
   # Concat input images of different episodes and generate reconstructed images.
   # Shape of images is [[images in episode as timesteps]].
-  if type(images[0][0]) is collections.OrderedDict:
-    images = pad_and_concatenate_videos(images, image_keys=image_keys, is_dict=True)
-  else:
-    images = pad_and_concatenate_videos(images, image_keys=image_keys, is_dict=False)
-  images = tf.image.convert_image_dtype([images], tf.uint8, saturate=True)
-  images = tf.squeeze(images, axis=2)
+  # if type(images[0][0]) is collections.OrderedDict:
+  #   images = pad_and_concatenate_videos(images, image_keys=image_keys, is_dict=True)
+  # else:
+  #   images = pad_and_concatenate_videos(images, image_keys=image_keys, is_dict=False)
+  # images = tf.image.convert_image_dtype([images], tf.uint8, saturate=True)
+  # images = tf.squeeze(images, axis=2)
   
-  reconstruct_images = get_latent_reconstruction_videos(latents, model_net)
-  reconstruct_images = tf.image.convert_image_dtype([reconstruct_images], tf.uint8, saturate=True)
+  # reconstruct_images = get_latent_reconstruction_videos(latents, model_net)
+  # reconstruct_images = tf.image.convert_image_dtype([reconstruct_images], tf.uint8, saturate=True)
 
   # Need to avoid eager here to avoid rasing error
-  gif_summary = common.function(gif_utils.gif_summary_v2)
+  # gif_summary = common.function(gif_utils.gif_summary_v2)
 
   # Summarize to tensorboard
-  gif_summary('ObservationVideoEvalPolicy', images, 1, fps)
-  gif_summary('ReconstructedVideoEvalPolicy', reconstruct_images, 1, fps)
+  # gif_summary('ObservationVideoEvalPolicy', images, 1, fps)
+  # gif_summary('ReconstructedVideoEvalPolicy', reconstruct_images, 1, fps)
 
 
 def pad_and_concatenate_videos(videos, image_keys, is_dict=False):

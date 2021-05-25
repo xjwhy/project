@@ -1,5 +1,9 @@
 # project
-这一版本主要是新环境的baseline，新环境是有3种输入，分别是地图、鸟瞰图、RGB
+1、这一版本主要是新环境的baseline，新环境是有3种输入，分别是地图、鸟瞰图、RGB
+
+2、需要在测试的时候改为贪婪策略
+
+3、需要在采样的时候选择多帧数据
 
 If out of system memory, change the parameter replay_buffer_capacity and initial_collect_steps the function tran_eval smaller.
 
