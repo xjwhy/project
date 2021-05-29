@@ -654,7 +654,42 @@ class SequentialLatentModelHierarchical(tf.Module):
     latent2_dists = nest_utils.map_distribution_structure(lambda *x: tf.stack(x, axis=1), *latent2_dists)
     latent2_samples = tf.stack(latent2_samples, axis=1)
     return (latent1_samples, latent2_samples), (latent1_dists, latent2_dists)
+  def sample_env(self, time_step):
+    """Sample posterior latents conditioned on input images."""
+    
+    images = time_step.observation
+    actions = time_step.observation['actions']
+    sequence_length = time_step.observation['camera'].shape[1]-1
 
+    features = self.get_features(images)
+
+    # Swap batch and time axes
+    features = tf.transpose(features, [1, 0, 2])
+    actions = tf.transpose(actions, [1, 0, 2])
+
+
+    # Get latent distributions and samples
+    latent1_samples = []
+    latent2_samples = []
+    for t in range(sequence_length + 1):
+      if t == 0:
+        latent1_dist = self.latent1_first_posterior(features[t])
+        latent1_sample = latent1_dist.sample()
+        latent2_dist = self.latent2_first_posterior(latent1_sample)
+        latent2_sample = latent2_dist.sample()
+      else:
+        latent1_dist = self.latent1_posterior(features[t], latent2_samples[t-1], actions[t-1])
+        latent1_sample = latent1_dist.sample()
+        latent2_dist = self.latent2_posterior(latent1_sample, latent2_samples[t-1], actions[t-1])
+        latent2_sample = latent2_dist.sample()
+
+
+      latent1_samples.append(latent1_sample)
+
+      latent2_samples.append(latent2_sample)
+
+
+    return tf.concat([latent1_sample, latent2_sample], axis=-1)
 
 @gin.configurable
 class SequentialLatentModelNonHierarchical(tf.Module):

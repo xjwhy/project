@@ -107,12 +107,43 @@ class LatentActorPolicy(tf_policy.Base):
 
     return distribution_step._replace(action=action, state=policy_state)
 
+  # def _distribution(self, time_step, policy_state):
+  #   network_state, latent_state, last_action = policy_state
+  #   latent_state = tf.where(time_step.is_first(), 
+  #     self._model_network.first_filter(time_step.observation),
+  #     self._model_network.filter(time_step.observation, latent_state, last_action))
+
+  #   # Update the latent state
+  #   policy_state = (network_state, latent_state, last_action)
+  #   # Actor network outputs nested structure of distributions or actions.
+  #   actions_or_distributions, network_state = self._apply_actor_network(
+  #       time_step, policy_state)
+  #   # Update the network state
+  #   policy_state = (network_state, latent_state, last_action)
+
+  #   def _to_distribution(action_or_distribution):
+  #     if isinstance(action_or_distribution, tf.Tensor):
+  #       # This is an action tensor, so wrap it in a deterministic distribution.
+  #       return tfp.distributions.Deterministic(loc=action_or_distribution)
+  #     return action_or_distribution
+
+  #   distributions = tf.nest.map_structure(_to_distribution,
+  #                                         actions_or_distributions)
+
+  #   # Prepare policy_info.
+  #   if self._collect:
+  #     policy_info = ppo_utils.get_distribution_params(distributions)
+  #   else:
+  #     policy_info = ()
+
+  #   return policy_step.PolicyStep(distributions, policy_state, policy_info)
+
   def _distribution(self, time_step, policy_state):
     network_state, latent_state, last_action = policy_state
-    latent_state = tf.where(time_step.is_first(), 
-      self._model_network.first_filter(time_step.observation),
-      self._model_network.filter(time_step.observation, latent_state, last_action))
-
+    # latent_state = tf.where(time_step.is_first(), 
+    #   self._model_network.first_filter(time_step.observation),
+    #   self._model_network.filter(time_step.observation, latent_state, last_action))
+    latent_state = self._model_network.sample_env(time_step)
     # Update the latent state
     policy_state = (network_state, latent_state, last_action)
     # Actor network outputs nested structure of distributions or actions.
@@ -137,3 +168,4 @@ class LatentActorPolicy(tf_policy.Base):
       policy_info = ()
 
     return policy_step.PolicyStep(distributions, policy_state, policy_info)
+

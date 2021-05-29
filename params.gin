@@ -16,7 +16,7 @@ train_eval.num_eval_episodes = 8
 train_eval.eval_interval = 5000
 train_eval.summary_interval = 5000
 
-train_eval.initial_collect_steps = 0
+train_eval.initial_collect_steps = 10
 
 train_eval.debug_summaries = False
 train_eval.num_images_per_summary = 2
