@@ -398,19 +398,21 @@ class SequentialLatentModelHierarchical(tf.Module):
 
   def compute_latents(self, images, actions, step_types, latent_posterior_samples_and_dists=None, num_first_image=5):
     """Compute the latent states of the sequential latent model."""
-    sequence_length = step_types.shape[1] - 1
+    sequence_length = step_types.shape[1] - 1  #11-1=10
 
     # Get posterior and prior samples of latents
     if latent_posterior_samples_and_dists is None:
       latent_posterior_samples_and_dists = self.sample_posterior(images, actions, step_types)
     (latent1_posterior_samples, latent2_posterior_samples), (latent1_posterior_dists, latent2_posterior_dists) = (
         latent_posterior_samples_and_dists)
-    (latent1_prior_samples, latent2_prior_samples), _ = self.sample_prior_or_posterior(actions, step_types)  # for visualization  仅通过先验获得
+    (latent1_prior_samples, latent2_prior_samples), _ = self.sample_prior_or_posterior(actions, step_types)  # for visualization  仅通过先验获得  32*11*32 shape
 
     # Get prior samples of latents conditioned on intial inputs
     first_image = {}
     for k,v in images.items():
-      first_image[k] = v[:, :num_first_image]    #只选择前5个
+      first_image[k] = v[:, :num_first_image]    #只选择前5个  32*5*64*64*3
+
+    #actions:32*11*2   first_image:32*5*64*64*3 step_types:32*11
     (latent1_conditional_prior_samples, latent2_conditional_prior_samples), _ = self.sample_prior_or_posterior(
         actions, step_types, images=first_image)  # for visualization. condition on first image only
 
@@ -419,18 +421,18 @@ class SequentialLatentModelHierarchical(tf.Module):
       after_first_prior_tensors = tf.where(reset_masks[:, 1:], first_prior_tensors[:, 1:], after_first_prior_tensors)
       prior_tensors = tf.concat([first_prior_tensors[:, 0:1], after_first_prior_tensors], axis=1)
       return prior_tensors
-
+    #step_type是用一句判断是FIRST还是MID还是LAST哪一步  32*11 第一维是1  后面31维度是判断是否是FIRST  RETURN 32*11
     reset_masks = tf.concat([tf.ones_like(step_types[:, 0:1], dtype=tf.bool),
                              tf.equal(step_types[:, 1:], ts.StepType.FIRST)], axis=1)
 
-    latent1_reset_masks = tf.tile(reset_masks[:, :, None], [1, 1, self.latent1_size])
-    latent1_first_prior_dists = self.latent1_first_prior(step_types)
+    latent1_reset_masks = tf.tile(reset_masks[:, :, None], [1, 1, self.latent1_size]) #RETURN 32*11*32
+    latent1_first_prior_dists = self.latent1_first_prior(step_types)   #RETURN 32*11
     latent1_after_first_prior_dists = self.latent1_prior(
-        latent2_posterior_samples[:, :sequence_length], actions[:, :sequence_length])
+        latent2_posterior_samples[:, :sequence_length], actions[:, :sequence_length]) #RETURN 32*10
     latent1_prior_dists = nest_utils.map_distribution_structure(
         functools.partial(where_and_concat, latent1_reset_masks),
         latent1_first_prior_dists,
-        latent1_after_first_prior_dists)
+        latent1_after_first_prior_dists)   #主要用于判断latent1_after_first_prior_dists是否有问题
 
     latent2_reset_masks = tf.tile(reset_masks[:, :, None], [1, 1, self.latent2_size])
     latent2_first_prior_dists = self.latent2_first_prior(latent1_posterior_samples)
@@ -454,8 +456,8 @@ class SequentialLatentModelHierarchical(tf.Module):
     latent1_dists, latent2_dists, latent1_samples, latent2_samples = \
       self.compute_latents(images, actions, step_types, latent_posterior_samples_and_dists, num_first_image)
 
-    latent1_posterior_dists, latent1_prior_dists = latent1_dists
-    latent2_posterior_dists, latent2_prior_dists = latent2_dists
+    latent1_posterior_dists, latent1_prior_dists = latent1_dists  #RETURN 32*11*32 32*11*32
+    latent2_posterior_dists, latent2_prior_dists = latent2_dists  #RETURN 32*11*256 32*11*256
     latent1_posterior_samples, latent1_prior_samples, \
       latent1_conditional_prior_samples = latent1_samples
     latent2_posterior_samples, latent2_prior_samples, \
@@ -494,9 +496,9 @@ class SequentialLatentModelHierarchical(tf.Module):
     likelihood_log_probs = {}
     reconstruction_error = {}
     for name in self.reconstruct_names:
-      likelihood_dists[name] = self.decoders[name](latent1_posterior_samples, latent2_posterior_samples)
+      likelihood_dists[name] = self.decoders[name](latent1_posterior_samples, latent2_posterior_samples)  #32*11  64*64*3
       images_tmp = tf.image.convert_image_dtype(images[name], tf.float32)
-      likelihood_log_probs[name] = likelihood_dists[name].log_prob(images_tmp)
+      likelihood_log_probs[name] = likelihood_dists[name].log_prob(images_tmp)  #32*11
       likelihood_log_probs[name] = tf.reduce_sum(likelihood_log_probs[name], axis=1)
       reconstruction_error[name] = tf.reduce_sum(tf.square(images_tmp - likelihood_dists[name].distribution.loc),
                                          axis=list(range(-len(likelihood_dists[name].event_shape), 0)))
@@ -572,7 +574,7 @@ class SequentialLatentModelHierarchical(tf.Module):
           latent2_dist = self.latent2_first_prior(latent1_sample)
         latent2_sample = latent2_dist.sample()
       else:
-        reset_mask = tf.equal(step_types[t], ts.StepType.FIRST)
+        reset_mask = tf.equal(step_types[t], ts.StepType.FIRST)  #用于选择是不是第一步，改动了
         reset_mask = tf.expand_dims(reset_mask, 1)
         if is_conditional:
           latent1_first_dist = self.latent1_first_posterior(features[t])

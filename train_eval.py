@@ -691,35 +691,35 @@ def train_eval(
     tf_agent.train = common.function(tf_agent.train)
 
     # Collect initial replay data.
-    if (env_steps.result() == 0 or replay_buffer.num_frames() == 0):
-      logging.info(
-          'Initializing replay buffer by collecting experience for %d steps'
-          'with a random policy.', initial_collect_steps)
-      initial_collect_driver.run()
+    # if (env_steps.result() == 0 or replay_buffer.num_frames() == 0):
+    #   logging.info(
+    #       'Initializing replay buffer by collecting experience for %d steps'
+    #       'with a random policy.', initial_collect_steps)
+    #   initial_collect_driver.run()
 
-    if agent_name == 'latent_sac':
-      compute_summaries(
-        eval_metrics,
-        eval_tf_env,
-        eval_policy,
-        train_step=global_step,
-        summary_writer=summary_writer,
-        num_episodes=1,
-        num_episodes_to_render=1,
-        model_net=model_net,
-        fps=10,
-        image_keys=input_names+mask_names)
-    else:
-      results = metric_utils.eager_compute(
-          eval_metrics,
-          eval_tf_env,
-          eval_policy,
-          num_episodes=1,
-          train_step=env_steps.result(),
-          summary_writer=summary_writer,
-          summary_prefix='Eval',
-      )
-      metric_utils.log_metrics(eval_metrics)
+    # if agent_name == 'latent_sac':
+    #   compute_summaries(
+    #     eval_metrics,
+    #     eval_tf_env,
+    #     eval_policy,
+    #     train_step=global_step,
+    #     summary_writer=summary_writer,
+    #     num_episodes=1,
+    #     num_episodes_to_render=1,
+    #     model_net=model_net,
+    #     fps=10,
+    #     image_keys=input_names+mask_names)
+    # else:
+    #   results = metric_utils.eager_compute(
+    #       eval_metrics,
+    #       eval_tf_env,
+    #       eval_policy,
+    #       num_episodes=1,
+    #       train_step=env_steps.result(),
+    #       summary_writer=summary_writer,
+    #       summary_prefix='Eval',
+    #   )
+    #   metric_utils.log_metrics(eval_metrics)
 
     # Dataset generates trajectories with shape [Bxslx...]
     dataset = replay_buffer.as_dataset(
