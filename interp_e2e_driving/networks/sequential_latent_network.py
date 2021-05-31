@@ -398,8 +398,8 @@ class SequentialLatentModelHierarchical(tf.Module):
 
   def compute_latents(self, images, actions, step_types, latent_posterior_samples_and_dists=None, num_first_image=5):
     """Compute the latent states of the sequential latent model."""
-    sequence_length = step_types.shape[1] - 1
-
+    sequence_length = images['camera'].shape[1] - 1
+    actions = images['actions']
     # Get posterior and prior samples of latents
     if latent_posterior_samples_and_dists is None:
       latent_posterior_samples_and_dists = self.sample_posterior(images, actions, step_types)
@@ -410,7 +410,7 @@ class SequentialLatentModelHierarchical(tf.Module):
     # Get prior samples of latents conditioned on intial inputs
     first_image = {}
     for k,v in images.items():
-      first_image[k] = v[:, :num_first_image]    #只选择前5个
+      first_image[k] = v[:, :num_first_image]    #只选择前5个用于计算后验，其余的用于计算先验
     (latent1_conditional_prior_samples, latent2_conditional_prior_samples), _ = self.sample_prior_or_posterior(
         actions, step_types, images=first_image)  # for visualization. condition on first image only
 
@@ -536,14 +536,14 @@ class SequentialLatentModelHierarchical(tf.Module):
 
   def sample_prior_or_posterior(self, actions, step_types=None, images=None):
     """Samples from the prior latents, or latents conditioned on input images."""
-    if step_types is None:
-      batch_size = tf.shape(actions)[0]
-      sequence_length = actions.shape[1]  # should be statically defined
-      step_types = tf.fill(
-          [batch_size, sequence_length + 1], ts.StepType.MID)
-    else:
-      sequence_length = step_types.shape[1] - 1
-      actions = actions[:, :sequence_length]
+    # if step_types is None:
+    batch_size = tf.shape(actions)[0]
+    sequence_length = actions.shape[1]  # should be statically defined
+    step_types = tf.fill(
+        [batch_size, sequence_length + 1], ts.StepType.MID)
+    # else:
+    #   sequence_length = step_types.shape[1] - 1
+    #   actions = actions[:, :sequence_length]
     if images is not None:
       features = self.get_features(images)
 
@@ -572,26 +572,26 @@ class SequentialLatentModelHierarchical(tf.Module):
           latent2_dist = self.latent2_first_prior(latent1_sample)
         latent2_sample = latent2_dist.sample()
       else:
-        reset_mask = tf.equal(step_types[t], ts.StepType.FIRST)
-        reset_mask = tf.expand_dims(reset_mask, 1)
+        # reset_mask = tf.equal(step_types[t], ts.StepType.FIRST)
+        # reset_mask = tf.expand_dims(reset_mask, 1)
         if is_conditional:
-          latent1_first_dist = self.latent1_first_posterior(features[t])
+          # latent1_first_dist = self.latent1_first_posterior(features[t])
           latent1_dist = self.latent1_posterior(features[t], latent2_samples[t-1], actions[t-1])
         else:
-          latent1_first_dist = self.latent1_first_prior(step_types[t])
+          # latent1_first_dist = self.latent1_first_prior(step_types[t])
           latent1_dist = self.latent1_prior(latent2_samples[t-1], actions[t-1])
-        latent1_dist = nest_utils.map_distribution_structure(
-            functools.partial(tf.where, reset_mask), latent1_first_dist, latent1_dist)
+        # latent1_dist = nest_utils.map_distribution_structure(
+        #     functools.partial(tf.where, reset_mask), latent1_first_dist, latent1_dist)
         latent1_sample = latent1_dist.sample()
 
         if is_conditional:
-          latent2_first_dist = self.latent2_first_posterior(latent1_sample)
+          # latent2_first_dist = self.latent2_first_posterior(latent1_sample)
           latent2_dist = self.latent2_posterior(latent1_sample, latent2_samples[t-1], actions[t-1])
         else:
-          latent2_first_dist = self.latent2_first_prior(latent1_sample)
+          # latent2_first_dist = self.latent2_first_prior(latent1_sample)
           latent2_dist = self.latent2_prior(latent1_sample, latent2_samples[t-1], actions[t-1])
-        latent2_dist = nest_utils.map_distribution_structure(
-            functools.partial(tf.where, reset_mask), latent2_first_dist, latent2_dist)
+        # latent2_dist = nest_utils.map_distribution_structure(
+        #     functools.partial(tf.where, reset_mask), latent2_first_dist, latent2_dist)
         latent2_sample = latent2_dist.sample()
 
       latent1_dists.append(latent1_dist)
@@ -607,8 +607,13 @@ class SequentialLatentModelHierarchical(tf.Module):
 
   def sample_posterior(self, images, actions, step_types, features=None):
     """Sample posterior latents conditioned on input images."""
-    sequence_length = step_types.shape[1] - 1
-    actions = actions[:, :sequence_length]
+
+    assert len(images['camera'].shape)==5
+    sequence_length = images['camera'].shape[1]-1
+
+
+    
+    actions = images['actions'][:, :, :sequence_length]
 
     if features is None:
       features = self.get_features(images)
@@ -630,18 +635,14 @@ class SequentialLatentModelHierarchical(tf.Module):
         latent2_dist = self.latent2_first_posterior(latent1_sample)
         latent2_sample = latent2_dist.sample()
       else:
-        reset_mask = tf.equal(step_types[t], ts.StepType.FIRST)
-        reset_mask = tf.expand_dims(reset_mask, 1)
-        latent1_first_dist = self.latent1_first_posterior(features[t])
+
+
         latent1_dist = self.latent1_posterior(features[t], latent2_samples[t-1], actions[t-1])
-        latent1_dist = nest_utils.map_distribution_structure(
-            functools.partial(tf.where, reset_mask), latent1_first_dist, latent1_dist)
+
         latent1_sample = latent1_dist.sample()
 
-        latent2_first_dist = self.latent2_first_posterior(latent1_sample)
         latent2_dist = self.latent2_posterior(latent1_sample, latent2_samples[t-1], actions[t-1])
-        latent2_dist = nest_utils.map_distribution_structure(
-            functools.partial(tf.where, reset_mask), latent2_first_dist, latent2_dist)
+
         latent2_sample = latent2_dist.sample()
 
       latent1_dists.append(latent1_dist)

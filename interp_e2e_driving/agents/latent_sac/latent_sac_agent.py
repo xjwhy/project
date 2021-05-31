@@ -94,15 +94,24 @@ class LatentSACAgent(tf_agent.TFAgent):
       # Sample the latent from model network
       images = experience.observation
       latent_samples_and_dists = self._model_network.sample_posterior(
-          images, actions, experience.step_type)
+          time_step.observation, action, experience.step_type)
       latents, _ = latent_samples_and_dists
+
+      next_latent_samples_and_dists = self._model_network.sample_posterior(
+          next_time_step.observation, action, experience.step_type)
+      next_latents, _ = next_latent_samples_and_dists
+
+      
       if isinstance(latents, (tuple, list)):
         latents = tf.concat(latents, axis=-1)
+      if isinstance(next_latents, (tuple, list)):
+        next_latents = tf.concat(next_latents, axis=-1)
       # Shape [B,...]
+      latents = tf.concat([latents[:,-1:], next_latents[:,-1:]], axis=1)
       latent, next_latent = tf.unstack(latents[:, -2:], axis=1)
 
       model_loss = self.model_loss(
-          images,
+          time_step.observation,
           experience.action,
           experience.step_type,
           latent_posterior_samples_and_dists=latent_samples_and_dists,
@@ -158,9 +167,9 @@ class LatentSACAgent(tf_agent.TFAgent):
                  weights=None):
       with tf.name_scope('model_loss'):
         if self._model_batch_size is not None:
-          actions, step_types = tf.nest.map_structure(     #选择前面bach_size个
+          actions = tf.nest.map_structure(     #选择前面bach_size个
               lambda x: x[:self._model_batch_size],
-              (actions, step_types))
+              images['actions'])
           images_new = {}
           for k, v in images.items():
             images_new[k] = v[:self._model_batch_size]   #选择对应batch大小的ob

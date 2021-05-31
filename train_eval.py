@@ -489,7 +489,8 @@ def train_eval(
               learning_rate=model_learning_rate),
           model_batch_size=model_batch_size,
           num_images_per_summary=num_images_per_summary,
-          sequence_length=sequence_length,
+          #修改序列长度为1
+          sequence_length=1,
           gradient_clipping=gradient_clipping,
           summarize_grads_and_vars=summarize_grads_and_vars,
           train_step_counter=global_step,
@@ -740,6 +741,7 @@ def train_eval(
     # Dataset generates trajectories with shape [Bxslx...]
     dataset = replay_buffer.as_dataset(
         num_parallel_calls=3,
+        num_steps=2,
         sample_batch_size=batch_size).prefetch(3)
     iterator = iter(dataset)
 
