@@ -412,7 +412,7 @@ class SequentialLatentModelHierarchical(tf.Module):
     for k,v in images.items():
       first_image[k] = v[:, :num_first_image]    #只选择前5个用于计算后验，其余的用于计算先验
     (latent1_conditional_prior_samples, latent2_conditional_prior_samples), _ = self.sample_prior_or_posterior(
-        actions, step_types, images=first_image)  # for visualization. condition on first image only
+        actions, step_types, images=first_image)  # for visualization. condition on first image only  #前5个是后验 后面的是先验
 
     # Reset the initial steps of an episode to first prior latents
     def where_and_concat(reset_masks, first_prior_tensors, after_first_prior_tensors):
@@ -420,8 +420,8 @@ class SequentialLatentModelHierarchical(tf.Module):
       prior_tensors = tf.concat([first_prior_tensors[:, 0:1], after_first_prior_tensors], axis=1)
       return prior_tensors
 
-    reset_masks = tf.concat([tf.ones_like(step_types[:, 0:1], dtype=tf.bool),
-                             tf.equal(step_types[:, 1:], ts.StepType.FIRST)], axis=1)
+    reset_masks = tf.concat([tf.ones_like(actions[:,0:1,0], dtype=tf.bool),
+                             tf.zeros_like(actions[:,1:,0], dtype=tf.bool)], axis=1)
 
     latent1_reset_masks = tf.tile(reset_masks[:, :, None], [1, 1, self.latent1_size])
     latent1_first_prior_dists = self.latent1_first_prior(step_types)

@@ -9,7 +9,7 @@ from __future__ import print_function
 import collections
 import gin
 import tensorflow as tf
-
+from tf_agents.trajectories import time_step as ts
 from tf_agents.agents import tf_agent
 from tf_agents.policies import greedy_policy
 from tf_agents.trajectories import trajectory
@@ -166,10 +166,11 @@ class LatentSACAgent(tf_agent.TFAgent):
                  latent_posterior_samples_and_dists=None,
                  weights=None):
       with tf.name_scope('model_loss'):
+        step_types = tf.constant([[0]+[1]*(images['actions'].shape[1]-1) for _ in range(actions.shape[0])], dtype=tf.int32)
         if self._model_batch_size is not None:
-          actions = tf.nest.map_structure(     #选择前面bach_size个
+          actions, step_types = tf.nest.map_structure(     #选择前面bach_size个
               lambda x: x[:self._model_batch_size],
-              images['actions'])
+              (images['actions'], step_types))
           images_new = {}
           for k, v in images.items():
             images_new[k] = v[:self._model_batch_size]   #选择对应batch大小的ob
