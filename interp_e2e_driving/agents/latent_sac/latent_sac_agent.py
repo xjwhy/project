@@ -80,7 +80,7 @@ class LatentSACAgent(tf_agent.TFAgent):
     
     # Get the sequence with shape [B,T,...]
     time_steps, actions, next_time_steps = self._experience_to_transitions(
-        experience)
+        experience)   #256*10*dim   256*10*2 256*10*dim
     # Get the last transition (s,a,s') with shape [B,1,...]
     time_step, action, next_time_step = self._experience_to_transitions(
         tf.nest.map_structure(lambda x: x[:, -2:], experience))
