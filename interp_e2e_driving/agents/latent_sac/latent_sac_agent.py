@@ -80,7 +80,7 @@ class LatentSACAgent(tf_agent.TFAgent):
     
     # Get the sequence with shape [B,T,...]
     time_steps, actions, next_time_steps = self._experience_to_transitions(
-        experience)
+        experience)  #input:B*2*seq*dim
     # Get the last transition (s,a,s') with shape [B,1,...]
     time_step, action, next_time_step = self._experience_to_transitions(
         tf.nest.map_structure(lambda x: x[:, -2:], experience))
@@ -107,7 +107,7 @@ class LatentSACAgent(tf_agent.TFAgent):
       if isinstance(next_latents, (tuple, list)):
         next_latents = tf.concat(next_latents, axis=-1)
       # Shape [B,...]
-      latents = tf.concat([latents[:,-1:], next_latents[:,-1:]], axis=1)
+      latents = tf.concat([latents[:,-1:], next_latents[:,-1:]], axis=1)   #(s, s')
       latent, next_latent = tf.unstack(latents[:, -2:], axis=1)
 
       model_loss = self.model_loss(
@@ -166,7 +166,7 @@ class LatentSACAgent(tf_agent.TFAgent):
                  latent_posterior_samples_and_dists=None,
                  weights=None):
       with tf.name_scope('model_loss'):
-        step_types = tf.constant([[0]+[1]*(images['actions'].shape[1]-1) for _ in range(actions.shape[0])], dtype=tf.int32)
+        step_types = tf.constant([[0]+[1]*(images['actions'].shape[1]) for _ in range(actions.shape[0])], dtype=tf.int32)
         if self._model_batch_size is not None:
           actions, step_types = tf.nest.map_structure(     #选择前面bach_size个
               lambda x: x[:self._model_batch_size],
@@ -190,12 +190,15 @@ class LatentSACAgent(tf_agent.TFAgent):
           if output.shape.ndims == 0:
             tf.summary.scalar(name, output, step=self.train_step_counter)
           elif output.shape.ndims == 5:
+            pass
+            '''
             output = output[:self._num_images_per_summary]
             output = tf.transpose(output, [1,0,2,3,4])
             output = tf.reshape(output, [output.shape[0], output.shape[1]*output.shape[2], output.shape[3], output.shape[4]])
             output = tf.expand_dims(output, axis=0)
             gif_utils.gif_summary(name, output, self._fps,
                          saturate=True, step=self.train_step_counter)
+            '''
           else:
             raise NotImplementedError
 

@@ -398,14 +398,14 @@ class SequentialLatentModelHierarchical(tf.Module):
 
   def compute_latents(self, images, actions, step_types, latent_posterior_samples_and_dists=None, num_first_image=5):
     """Compute the latent states of the sequential latent model."""
-    sequence_length = images['camera'].shape[1] - 1
+    sequence_length = images['actions'].shape[1]
     actions = images['actions']
     # Get posterior and prior samples of latents
     if latent_posterior_samples_and_dists is None:
       latent_posterior_samples_and_dists = self.sample_posterior(images, actions, step_types)
     (latent1_posterior_samples, latent2_posterior_samples), (latent1_posterior_dists, latent2_posterior_dists) = (
         latent_posterior_samples_and_dists)
-    (latent1_prior_samples, latent2_prior_samples), _ = self.sample_prior_or_posterior(actions, step_types)  # for visualization  仅通过先验获得
+    (latent1_prior_samples, latent2_prior_samples), _ = self.sample_prior_or_posterior(actions, step_types)  # for visualization  仅通过先验获得  32*11*32
 
     # Get prior samples of latents conditioned on intial inputs
     first_image = {}
@@ -420,8 +420,8 @@ class SequentialLatentModelHierarchical(tf.Module):
       prior_tensors = tf.concat([first_prior_tensors[:, 0:1], after_first_prior_tensors], axis=1)
       return prior_tensors
 
-    reset_masks = tf.concat([tf.ones_like(actions[:,0:1,0], dtype=tf.bool),
-                             tf.zeros_like(actions[:,1:,0], dtype=tf.bool)], axis=1)
+    reset_masks = tf.concat([tf.ones_like(step_types[:,0:1], dtype=tf.bool),
+                             tf.zeros_like(step_types[:,1:], dtype=tf.bool)], axis=1)
 
     latent1_reset_masks = tf.tile(reset_masks[:, :, None], [1, 1, self.latent1_size])
     latent1_first_prior_dists = self.latent1_first_prior(step_types)
@@ -511,26 +511,26 @@ class SequentialLatentModelHierarchical(tf.Module):
     loss = -tf.reduce_mean(elbo)
 
     # Generate the images
-    posterior_images = {}
-    prior_images = {}
-    conditional_prior_images = {}
-    for name in self.reconstruct_names:
-      posterior_images[name] = likelihood_dists[name].mean()
-      prior_images[name] = self.decoders[name](latent1_prior_samples, latent2_prior_samples).mean()
-      conditional_prior_images[name] = self.decoders[name](latent1_conditional_prior_samples, latent2_conditional_prior_samples).mean()
+    # posterior_images = {}
+    # prior_images = {}
+    # conditional_prior_images = {}
+    # for name in self.reconstruct_names:
+    #   posterior_images[name] = likelihood_dists[name].mean()
+    #   prior_images[name] = self.decoders[name](latent1_prior_samples, latent2_prior_samples).mean()
+    #   conditional_prior_images[name] = self.decoders[name](latent1_conditional_prior_samples, latent2_conditional_prior_samples).mean()
 
-    images = tf.concat([tf.image.convert_image_dtype(images[k], tf.float32)
-      for k in list(set(self.input_names+self.reconstruct_names))], axis=-2)
-    posterior_images = tf.concat(list(posterior_images.values()), axis=-2)
-    prior_images = tf.concat(list(prior_images.values()), axis=-2)
-    conditional_prior_images = tf.concat(list(conditional_prior_images.values()), axis=-2)
+    # images = tf.concat([tf.image.convert_image_dtype(images[k], tf.float32)
+    #   for k in list(set(self.input_names+self.reconstruct_names))], axis=-2)
+    # posterior_images = tf.concat(list(posterior_images.values()), axis=-2)
+    # prior_images = tf.concat(list(prior_images.values()), axis=-2)
+    # conditional_prior_images = tf.concat(list(conditional_prior_images.values()), axis=-2)
 
     outputs.update({
       'elbo': tf.reduce_mean(elbo),
-      'images': images,
-      'posterior_images': posterior_images,
-      'prior_images': prior_images,
-      'conditional_prior_images': conditional_prior_images,
+      # 'images': images,
+      # 'posterior_images': posterior_images,
+      # 'prior_images': prior_images,
+      # 'conditional_prior_images': conditional_prior_images,
     })
     return loss, outputs
 
