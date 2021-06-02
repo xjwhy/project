@@ -18,7 +18,6 @@
                 "--gin_param", "load_carla_env.port=2000"
             ],
             "env": {
-                "CUDA_VISIBLE_DEVICES":"0",
                 "PYTHONPATH":"${workspaceRoot}"
             }
         }
