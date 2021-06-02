@@ -1,1 +1,1 @@
-nohup python train_eval.py --root_dir logs/new_main/ --experiment_name latent_sac --gin_file /home/liuyx/project/project/params.gin --gin_param load_carla_env.port=2000 > /home/liuyx/project/project/log.txt 2>&1 &
+nohup python train_eval.py --root_dir logs/seq_main/ --experiment_name latent_sac --gin_file /home/liuyx/project/project/params.gin --gin_param load_carla_env.port=2000 > /home/liuyx/project/project/log.txt 2>&1 &

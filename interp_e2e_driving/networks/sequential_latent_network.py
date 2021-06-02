@@ -426,18 +426,18 @@ class SequentialLatentModelHierarchical(tf.Module):
     latent1_reset_masks = tf.tile(reset_masks[:, :, None], [1, 1, self.latent1_size])
     latent1_first_prior_dists = self.latent1_first_prior(step_types)
     latent1_after_first_prior_dists = self.latent1_prior(
-        latent2_posterior_samples[:, :sequence_length], actions[:, :sequence_length])
+        latent2_posterior_samples[:, :sequence_length], actions[:, :sequence_length])  #p(z_{t+1}^1 | z_t^2, a_t)
     latent1_prior_dists = nest_utils.map_distribution_structure(
         functools.partial(where_and_concat, latent1_reset_masks),
         latent1_first_prior_dists,
         latent1_after_first_prior_dists)
 
     latent2_reset_masks = tf.tile(reset_masks[:, :, None], [1, 1, self.latent2_size])
-    latent2_first_prior_dists = self.latent2_first_prior(latent1_posterior_samples)
+    latent2_first_prior_dists = self.latent2_first_prior(latent1_posterior_samples) #p(z_1^2 | z_1^1)
     latent2_after_first_prior_dists = self.latent2_prior(
         latent1_posterior_samples[:, 1:sequence_length+1],
         latent2_posterior_samples[:, :sequence_length],
-        actions[:, :sequence_length])
+        actions[:, :sequence_length])  #p(z_{t+1}^2 | z_{t+1}^1, z_t^2, a_t)
     latent2_prior_dists = nest_utils.map_distribution_structure(
         functools.partial(where_and_concat, latent2_reset_masks),
         latent2_first_prior_dists,
@@ -454,8 +454,8 @@ class SequentialLatentModelHierarchical(tf.Module):
     latent1_dists, latent2_dists, latent1_samples, latent2_samples = \
       self.compute_latents(images, actions, step_types, latent_posterior_samples_and_dists, num_first_image)
 
-    latent1_posterior_dists, latent1_prior_dists = latent1_dists
-    latent2_posterior_dists, latent2_prior_dists = latent2_dists
+    latent1_posterior_dists, latent1_prior_dists = latent1_dists #RETURN 32*11*32 32*11*32
+    latent2_posterior_dists, latent2_prior_dists = latent2_dists #RETURN 32*11*256 32*11*256
     latent1_posterior_samples, latent1_prior_samples, \
       latent1_conditional_prior_samples = latent1_samples
     latent2_posterior_samples, latent2_prior_samples, \
@@ -545,10 +545,10 @@ class SequentialLatentModelHierarchical(tf.Module):
     #   sequence_length = step_types.shape[1] - 1
     #   actions = actions[:, :sequence_length]
     if images is not None:
-      features = self.get_features(images)
+      features = self.get_features(images)  #f_t, f_{t+1}, ..., f_{t+L}
 
     # Swap batch and time axes
-    actions = tf.transpose(actions, [1, 0, 2])
+    actions = tf.transpose(actions, [1, 0, 2])  #a_t, a_{t+1}, ..., a_{t+L-1}
     step_types = tf.transpose(step_types, [1, 0])
     if images is not None:
       features = tf.transpose(features, [1, 0, 2])
@@ -579,7 +579,7 @@ class SequentialLatentModelHierarchical(tf.Module):
           latent1_dist = self.latent1_posterior(features[t], latent2_samples[t-1], actions[t-1])
         else:
           # latent1_first_dist = self.latent1_first_prior(step_types[t])
-          latent1_dist = self.latent1_prior(latent2_samples[t-1], actions[t-1])
+          latent1_dist = self.latent1_prior(latent2_samples[t-1], actions[t-1])  #p(z_{t}^1 | z_{t-1}^2, a_{t-1})
         # latent1_dist = nest_utils.map_distribution_structure(
         #     functools.partial(tf.where, reset_mask), latent1_first_dist, latent1_dist)
         latent1_sample = latent1_dist.sample()
@@ -613,37 +613,37 @@ class SequentialLatentModelHierarchical(tf.Module):
 
 
     
-    actions = images['actions'][:, :, :sequence_length]
+    actions = images['actions'][:, :, :sequence_length]  #a_t, a_{t+1}, ..., a_{t+L-1}
 
     if features is None:
-      features = self.get_features(images)
+      features = self.get_features(images)  #f_t, f_{t+1}, ..., f_{t+L}
 
     # Swap batch and time axes
     features = tf.transpose(features, [1, 0, 2])
     actions = tf.transpose(actions, [1, 0, 2])
-    step_types = tf.transpose(step_types, [1, 0])
+    # step_types = tf.transpose(step_types, [1, 0])
 
     # Get latent distributions and samples
-    latent1_dists = []
+    latent1_dists = []   #z_{t}^1, z_{t+1}^1, ..., z_{t+L}^1
     latent1_samples = []
-    latent2_dists = []
+    latent2_dists = []   #z_{t}^2, z_{t+1}^2, ..., z_{t+L}^2
     latent2_samples = []
     for t in range(sequence_length + 1):
       if t == 0:
-        latent1_dist = self.latent1_first_posterior(features[t])
+        latent1_dist = self.latent1_first_posterior(features[t])  #  q(z_t^1 | f_t)
         latent1_sample = latent1_dist.sample()
-        latent2_dist = self.latent2_first_posterior(latent1_sample)
+        latent2_dist = self.latent2_first_posterior(latent1_sample)  #q(z_t^2 | z_t^1)
         latent2_sample = latent2_dist.sample()
       else:
 
 
-        latent1_dist = self.latent1_posterior(features[t], latent2_samples[t-1], actions[t-1])
+        latent1_dist = self.latent1_posterior(features[t], latent2_samples[t-1], actions[t-1]) #q(z_{t}^1 | f_{t}, z_{t-1}^2, a_{t-1})
 
         latent1_sample = latent1_dist.sample()
 
         latent2_dist = self.latent2_posterior(latent1_sample, latent2_samples[t-1], actions[t-1])
 
-        latent2_sample = latent2_dist.sample()
+        latent2_sample = latent2_dist.sample()  #q(z_{t}^2 | z_{t}^1, z_{t-1}^2, a_{t-1})
 
       latent1_dists.append(latent1_dist)
       latent1_samples.append(latent1_sample)
@@ -658,11 +658,11 @@ class SequentialLatentModelHierarchical(tf.Module):
   def sample_env(self, time_step):
     """Sample posterior latents conditioned on input images."""
     
-    images = time_step.observation
-    actions = time_step.observation['actions']
+    images = time_step.observation   #x_t, x_{t+1}, ..., x_{t+L}
+    actions = time_step.observation['actions']  #a_t, a_{t+1}, ..., a_{t+L-1}
     sequence_length = time_step.observation['camera'].shape[1]-1
 
-    features = self.get_features(images)
+    features = self.get_features(images)  #f_t, f_{t+1}, ..., f_{t+L}
 
     # Swap batch and time axes
     features = tf.transpose(features, [1, 0, 2])
@@ -670,18 +670,18 @@ class SequentialLatentModelHierarchical(tf.Module):
 
 
     # Get latent distributions and samples
-    latent1_samples = []
-    latent2_samples = []
+    latent1_samples = []   #z_{t}^1, z_{t+1}^1, ..., z_{t+L}^1
+    latent2_samples = []   ##z_{t}^2, z_{t+1}^2, ..., z_{t+L}^2
     for t in range(sequence_length + 1):
       if t == 0:
-        latent1_dist = self.latent1_first_posterior(features[t])
+        latent1_dist = self.latent1_first_posterior(features[t]) #  q(z_t^1 | f_t)
         latent1_sample = latent1_dist.sample()
-        latent2_dist = self.latent2_first_posterior(latent1_sample)
+        latent2_dist = self.latent2_first_posterior(latent1_sample)#q(z_t^2 | z_t^1)
         latent2_sample = latent2_dist.sample()
       else:
-        latent1_dist = self.latent1_posterior(features[t], latent2_samples[t-1], actions[t-1])
+        latent1_dist = self.latent1_posterior(features[t], latent2_samples[t-1], actions[t-1])#q(z_{t}^1 | f_{t}, z_{t-1}^2, a_{t-1})
         latent1_sample = latent1_dist.sample()
-        latent2_dist = self.latent2_posterior(latent1_sample, latent2_samples[t-1], actions[t-1])
+        latent2_dist = self.latent2_posterior(latent1_sample, latent2_samples[t-1], actions[t-1])#q(z_{t}^2 | z_{t}^1, z_{t-1}^2, a_{t-1})
         latent2_sample = latent2_dist.sample()
 
 

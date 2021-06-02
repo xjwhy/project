@@ -94,11 +94,11 @@ class LatentSACAgent(tf_agent.TFAgent):
       # Sample the latent from model network
       images = experience.observation
       latent_samples_and_dists = self._model_network.sample_posterior(
-          time_step.observation, action, experience.step_type)
+          time_step.observation, actions=time_step.observation['actions'], step_types=None)
       latents, _ = latent_samples_and_dists
 
       next_latent_samples_and_dists = self._model_network.sample_posterior(
-          next_time_step.observation, action, experience.step_type)
+          next_time_step.observation, actions=next_time_step.observation['actions'], step_types=None)
       next_latents, _ = next_latent_samples_and_dists
 
       
