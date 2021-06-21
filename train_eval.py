@@ -286,7 +286,7 @@ class Preprocessing_Layer(tf.keras.layers.Layer):
 
   def __call__(self, image, training=None):
     image = tf.image.convert_image_dtype(image, tf.float32)
-    image_shape = tf.shape(image)[-3:]
+    image_shape = tf.shape(image)[-3:]  #由于加入了序列信息，因此还需要添加seq_length
     collapsed_shape = tf.concat(([-1], image_shape), axis=0)
     out = tf.reshape(image, collapsed_shape)  # (sample*N*T, h, w, c)
     out = self.conv1(out)
@@ -533,13 +533,13 @@ def train_eval(
 
       elif agent_name == 'ddpg' or agent_name == 'td3':
         actor_rnn_net = multi_inputs_actor_rnn_network.MultiInputsActorRnnNetwork(
-          observation_spec,
+          observation_spec,   #camera:5*64*64*3   lidar:5*64*64*3   birdeye:5*64*64*3
           action_spec,
-          preprocessing_layers=preprocessing_layers,
+          preprocessing_layers=preprocessing_layers,   #先将image经过5层卷积提取特征
           preprocessing_combiner=preprocessing_combiner,
-          input_fc_layer_params=actor_fc_layers,
-          lstm_size=actor_lstm_size,
-          output_fc_layer_params=actor_output_fc_layers)
+          input_fc_layer_params=actor_fc_layers,  #256*256
+          lstm_size=actor_lstm_size,   #40
+          output_fc_layer_params=actor_output_fc_layers)  #100
 
         critic_rnn_net = multi_inputs_critic_rnn_network.MultiInputsCriticRnnNetwork(
           (observation_spec, action_spec),

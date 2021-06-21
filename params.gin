@@ -1,7 +1,7 @@
 # Parameters for train_eval:
 # ==============================================================================
 train_eval.env_name = 'seq_carla-v0'
-train_eval.agent_name = 'latent_sac'
+train_eval.agent_name = 'ddpg'
 train_eval.model_network_ctor_type = 'hierarchical'
 
 train_eval.initial_model_train_steps = 0
@@ -9,14 +9,14 @@ train_eval.num_iterations = 3000000
 #正常一个batch_size  model_batch_size是训练model采取的更小的一部分样本
 train_eval.batch_size = 256
 train_eval.model_batch_size = 32
-train_eval.sequence_length = 11
+train_eval.sequence_length = 5
 
 #测试需要几个episode
 train_eval.num_eval_episodes = 8
 train_eval.eval_interval = 5000
 train_eval.summary_interval = 5000
 
-train_eval.initial_collect_steps = 10
+train_eval.initial_collect_steps = 500
 
 train_eval.debug_summaries = False
 train_eval.num_images_per_summary = 2
@@ -31,5 +31,5 @@ train_eval.mask_names=[]
 
 # Parameters for load_carla_env:
 # ==============================================================================
-load_carla_env.max_time_episode=128
+load_carla_env.max_time_episode=256
 load_carla_env.port=2000

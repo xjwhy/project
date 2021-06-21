@@ -115,7 +115,7 @@ class MultiInputsActorRnnNetwork(network.Network):
     if preprocessing_combiner is not None:
       preprocessing_combiner = _copy_layer(preprocessing_combiner)
 
-    input_layers = utils.mlp_layers(
+    input_layers = utils.mlp_layers(   #256*256 mlp  relu
         conv_layer_params,
         input_fc_layer_params,
         activation_fn=activation_fn,
@@ -140,7 +140,7 @@ class MultiInputsActorRnnNetwork(network.Network):
     flat_action_spec = tf.nest.flatten(output_tensor_spec)
     action_layers = [
         tf.keras.layers.Dense(
-            single_action_spec.shape.num_elements(),
+            single_action_spec.shape.num_elements(),  #2
             activation=tf.keras.activations.tanh,
             kernel_initializer=tf.keras.initializers.RandomUniform(
                 minval=-0.003, maxval=0.003),
@@ -182,7 +182,7 @@ class MultiInputsActorRnnNetwork(network.Network):
         processed = processed[0]
     observation = processed
     if self._preprocessing_combiner is not None:
-      observation = self._preprocessing_combiner(observation)
+      observation = self._preprocessing_combiner(observation)  #直接相加
     observation_spec = tensor_spec.TensorSpec((observation.shape[-1],), dtype=observation.dtype)
 
     num_outer_dims = nest_utils.get_outer_rank(observation,
@@ -203,7 +203,7 @@ class MultiInputsActorRnnNetwork(network.Network):
     batch_squash = utils.BatchSquash(2)  # Squash B, and T dims.
     states = batch_squash.flatten(states)  # [B, T, ...] -> [B x T, ...]
 
-    for layer in self._input_layers:
+    for layer in self._input_layers:      #256*256 mlp
       states = layer(states, training=training)
 
     states = batch_squash.unflatten(states)  # [B x T, ...] -> [B, T, ...]

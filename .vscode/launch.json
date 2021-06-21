@@ -12,8 +12,8 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args":[
-                "--root_dir", "logs/seq_main/",
-                "--experiment_name", "latent_sac",
+                "--root_dir", "logs/seq_main/ddpg",
+                "--experiment_name", "ddpg",
                 "--gin_file", "/home/liuyx/project/project/params.gin",
                 "--gin_param", "load_carla_env.port=2000"
             ],
